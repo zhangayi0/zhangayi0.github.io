@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>知识库</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #1a1a1a;
+      --muted: #6b6b6b;
+      --border: #e8e8e8;
+      --accent: #2563eb;
+      --accent-soft: #eff6ff;
+      --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.04);
+      --radius: 10px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+        "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.55;
+      min-height: 100vh;
+    }
+
+    .app {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 1rem 1rem 2rem;
+      min-height: 100vh;
+    }
+
+    .icon-btn {
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 8px;
+      padding: 0.35rem 0.65rem;
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: var(--muted);
+      box-shadow: var(--shadow);
+    }
+
+    .icon-btn:hover {
+      color: var(--fg);
+      border-color: #d0d0d0;
+    }
+
+    .nav-back-row {
+      margin-bottom: 1rem;
+    }
+
+    .content-card {
+      padding: 1.25rem 1.5rem;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: auto;
+      min-height: 200px;
+    }
+
+    .folder-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .folder-tab {
+      padding: 0.45rem 0.9rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #fafafa;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      font-family: inherit;
+      color: var(--fg);
+      transition: border-color 0.15s, background 0.15s, color 0.15s;
+    }
+
+    .folder-tab:hover {
+      border-color: #bfdbfe;
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .folder-tab.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .browse-tags-title {
+      margin: 0 0 0.6rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .browse-tag-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      align-items: center;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-bottom: 1rem;
+      align-items: center;
+    }
+
+    .tag-badge {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      background: #f4f4f5;
+      border: 1px solid var(--border);
+      color: var(--fg);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .tag-badge:hover {
+      background: var(--accent-soft);
+      border-color: #bfdbfe;
+      color: var(--accent);
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .error {
+      color: #b91c1c;
+      font-size: 0.9rem;
+    }
+
+    #doc-html-frame {
+      width: 100%;
+      min-height: 400px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .md-body :first-child {
+      margin-top: 0;
+    }
+
+    .md-body pre {
+      background: #f8f8f9;
+      padding: 0.85rem 1rem;
+      border-radius: 8px;
+      overflow: auto;
+      border: 1px solid var(--border);
+    }
+
+    .md-body code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.88em;
+    }
+
+    .tag-filter-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .tag-filter-list li {
+      margin-bottom: 0.35rem;
+    }
+
+    .tag-filter-list button {
+      width: 100%;
+      text-align: left;
+      padding: 0.55rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #fafafa;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .tag-filter-list button:hover {
+      border-color: #bfdbfe;
+      background: var(--accent-soft);
+    }
+
+    .path-muted {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-left: 0.35rem;
+    }
+
+    .home-head {
+      margin: 0 0 0.5rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <main class="content-card" id="content-view">
+      <p class="hint">正在加载索引…</p>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="./index.inline.js"></script>
+  <script>
+    (function () {
+      /** @type {{ folders: { name: string, files: { name: string, path: string, tags: string[] }[] }[] }} */
+      let indexData = { folders: [] };
+      let currentFolderName = "";
+      let docGeneration = 0;
+
+      function bumpDocGeneration() {
+        docGeneration++;
+      }
+
+      const elContentView = document.getElementById("content-view");
+
+      function appendNavBack(targetHash) {
+        const wrap = document.createElement("div");
+        wrap.className = "nav-back-row";
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "icon-btn";
+        btn.textContent = "← 返回";
+        btn.addEventListener("click", function () {
+          window.location.hash = targetHash;
+        });
+        wrap.appendChild(btn);
+        elContentView.appendChild(wrap);
+      }
+
+      function encodeSeg(s) {
+        return encodeURIComponent(s).replace(/[!'()*]/g, function (c) {
+          return "%" + c.charCodeAt(0).toString(16).toUpperCase();
+        });
+      }
+
+      function decodeSeg(s) {
+        try {
+          return decodeURIComponent(s);
+        } catch {
+          return s;
+        }
+      }
+
+      function parseHash() {
+        const raw = window.location.hash.replace(/^#/, "").replace(/^\//, "");
+        if (!raw) return { kind: "home" };
+        const parts = raw.split("/").map(decodeSeg);
+        if (parts[0] === "tag" && parts.length >= 2) {
+          return { kind: "tag", tag: parts.slice(1).join("/") };
+        }
+        if (parts[0] === "browse") {
+          if (parts.length >= 4 && parts[2] === "tag") {
+            return { kind: "browse_tag", folder: parts[1], tag: parts.slice(3).join("/") };
+          }
+          if (parts.length >= 2) {
+            return { kind: "browse", folder: parts[1] };
+          }
+          return { kind: "home" };
+        }
+        if (parts.length >= 2) {
+          return { kind: "doc", folder: parts[0], file: parts.slice(1).join("/") };
+        }
+        return { kind: "home" };
+      }
+
+      function setHashBrowse(folderName) {
+        const h = "#/browse/" + encodeSeg(folderName);
+        if (window.location.hash !== h) {
+          window.location.hash = h;
+        }
+      }
+
+      function setHashBrowseTag(folderName, tag) {
+        const h = "#/browse/" + encodeSeg(folderName) + "/tag/" + encodeSeg(tag);
+        if (window.location.hash !== h) {
+          window.location.hash = h;
+        }
+      }
+
+      function setHashDoc(folderName, fileName) {
+        const h = "#/" + encodeSeg(folderName) + "/" + encodeSeg(fileName);
+        if (window.location.hash !== h) {
+          window.location.hash = h;
+        }
+      }
+
+      function setHashTag(tag) {
+        const h = "#/tag/" + encodeSeg(tag);
+        if (window.location.hash !== h) {
+          window.location.hash = h;
+        }
+      }
+
+      function findFileEntry(folderName, fileName) {
+        const folder = indexData.folders.find(function (f) {
+          return f.name === folderName;
+        });
+        if (!folder) return null;
+        const wantPath = folderName + "/" + fileName;
+        const candidates = folder.files.filter(function (x) {
+          return x.name === fileName || x.path === wantPath || x.path.endsWith("/" + fileName);
+        });
+        if (!candidates.length) return null;
+        const exact = candidates.find(function (x) {
+          return x.path === wantPath;
+        });
+        const entry = exact || candidates[0];
+        return { folder: folderName, entry: entry };
+      }
+
+      function collectTaggedFiles(tag) {
+        const out = [];
+        indexData.folders.forEach(function (folder) {
+          folder.files.forEach(function (file) {
+            if ((file.tags || []).indexOf(tag) !== -1) {
+              out.push({ folder: folder.name, file: file });
+            }
+          });
+        });
+        return out;
+      }
+
+      function collectTaggedFilesInFolder(folderName, tag) {
+        const out = [];
+        const folder = indexData.folders.find(function (f) {
+          return f.name === folderName;
+        });
+        if (!folder) return out;
+        folder.files.forEach(function (file) {
+          if ((file.tags || []).indexOf(tag) !== -1) {
+            out.push({ folder: folder.name, file: file });
+          }
+        });
+        return out;
+      }
+
+      /** 若 name 无效则回退到第一个文件夹 */
+      function resolveBrowseFolder(name) {
+        if (!indexData.folders.length) return "";
+        if (name && indexData.folders.some(function (f) { return f.name === name; })) {
+          return name;
+        }
+        return indexData.folders[0].name;
+      }
+
+      /** 某文件夹内去重标签，按中文排序；无标签的不列入 */
+      function collectFolderTagsSorted(folderName) {
+        const set = new Set();
+        const folder = indexData.folders.find(function (f) {
+          return f.name === folderName;
+        });
+        if (!folder) return [];
+        folder.files.forEach(function (file) {
+          (file.tags || []).forEach(function (t) {
+            if (t) set.add(t);
+          });
+        });
+        return Array.from(set).sort(function (a, b) {
+          return a.localeCompare(b, "zh-CN");
+        });
+      }
+
+      function renderBrowse(folderName) {
+        bumpDocGeneration();
+        revokeIframeBlob();
+        currentFolderName = folderName;
+
+        elContentView.innerHTML = "";
+
+        if (!indexData.folders.length) {
+          elContentView.appendChild(
+            Object.assign(document.createElement("p"), {
+              className: "hint",
+              textContent: "暂无分类文件夹。请在 docs 下创建一级子文件夹并放入 .md / .html 后重新生成索引。",
+            })
+          );
+          return;
+        }
+
+        const folder = resolveBrowseFolder(folderName);
+        if (folder !== folderName && folderName) {
+          history.replaceState(null, "", "#/browse/" + encodeSeg(folder));
+        }
+        currentFolderName = folder;
+
+        const tabs = document.createElement("div");
+        tabs.className = "folder-tabs";
+        tabs.setAttribute("role", "tablist");
+        indexData.folders.forEach(function (f) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "folder-tab" + (f.name === folder ? " active" : "");
+          btn.textContent = f.name;
+          btn.setAttribute("role", "tab");
+          btn.setAttribute("aria-selected", f.name === folder ? "true" : "false");
+          btn.addEventListener("click", function () {
+            setHashBrowse(f.name);
+          });
+          tabs.appendChild(btn);
+        });
+        elContentView.appendChild(tabs);
+
+        const tagTitle = document.createElement("p");
+        tagTitle.className = "browse-tags-title";
+        tagTitle.textContent = "标签（仅 " + folder + "）";
+        elContentView.appendChild(tagTitle);
+
+        const tags = collectFolderTagsSorted(folder);
+        if (!tags.length) {
+          elContentView.appendChild(
+            Object.assign(document.createElement("p"), {
+              className: "hint",
+              textContent: "该文件夹下暂无标签。可在 Markdown 首行添加 tags: 标签1, 标签2 后重新运行 build_index.py。",
+            })
+          );
+          return;
+        }
+
+        const grid = document.createElement("div");
+        grid.className = "browse-tag-grid";
+        tags.forEach(function (t) {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "tag-badge";
+          b.textContent = t;
+          b.addEventListener("click", function () {
+            setHashBrowseTag(folder, t);
+          });
+          grid.appendChild(b);
+        });
+        elContentView.appendChild(grid);
+
+        const hint = document.createElement("p");
+        hint.className = "hint";
+        hint.style.marginTop = "1.25rem";
+        hint.textContent = "点击标签查看该文件夹内含此标签的文件，再点击文件名打开正文。";
+        elContentView.appendChild(hint);
+      }
+
+      function renderBrowseTagView(folderName, tag) {
+        bumpDocGeneration();
+        revokeIframeBlob();
+        currentFolderName = folderName;
+
+        const hits = collectTaggedFilesInFolder(folderName, tag);
+        elContentView.innerHTML = "";
+        appendNavBack("#/browse/" + encodeSeg(folderName));
+
+        const tabs = document.createElement("div");
+        tabs.className = "folder-tabs";
+        indexData.folders.forEach(function (f) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "folder-tab" + (f.name === folderName ? " active" : "");
+          btn.textContent = f.name;
+          btn.addEventListener("click", function () {
+            setHashBrowse(f.name);
+          });
+          tabs.appendChild(btn);
+        });
+        elContentView.appendChild(tabs);
+
+        const sub = document.createElement("p");
+        sub.className = "browse-tags-title";
+        sub.textContent = "标签：「" + tag + "」";
+        elContentView.appendChild(sub);
+
+        const intro = document.createElement("p");
+        intro.className = "hint";
+        intro.textContent = hits.length ? "共 " + hits.length + " 个文件（仅 " + folderName + "）" : "该文件夹下没有包含此标签的文件";
+        elContentView.appendChild(intro);
+
+        const ul = document.createElement("ul");
+        ul.className = "tag-filter-list";
+        hits.forEach(function (h) {
+          const li = document.createElement("li");
+          const btn = document.createElement("button");
+          btn.type = "button";
+          const pathLabel = h.file.path || h.folder + "/" + h.file.name;
+          btn.innerHTML =
+            "<span>" +
+            escapeHtml(h.file.name) +
+            '</span><span class="path-muted">' +
+            escapeHtml(pathLabel) +
+            "</span>";
+          btn.addEventListener("click", function () {
+            setHashDoc(h.folder, h.file.name);
+          });
+          li.appendChild(btn);
+          ul.appendChild(li);
+        });
+        elContentView.appendChild(ul);
+      }
+
+      function revokeIframeBlob() {
+        const frame = document.getElementById("doc-html-frame");
+        if (frame && frame.dataset.blobUrl) {
+          try {
+            URL.revokeObjectURL(frame.dataset.blobUrl);
+          } catch (_) {}
+          delete frame.dataset.blobUrl;
+        }
+      }
+
+      function showTagsBadges(tags, onTagClick) {
+        const row = document.createElement("div");
+        row.className = "tag-row";
+        if (!tags || !tags.length) {
+          const sp = document.createElement("span");
+          sp.className = "hint";
+          sp.textContent = "无标签";
+          row.appendChild(sp);
+          return row;
+        }
+        tags.forEach(function (t) {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "tag-badge";
+          b.textContent = t;
+          b.addEventListener("click", function () {
+            if (typeof onTagClick === "function") onTagClick(t);
+          });
+          row.appendChild(b);
+        });
+        return row;
+      }
+
+      function stripMdTagsLine(text) {
+        var lines = text.split(/\r?\n/);
+        if (!lines.length) return text;
+        var first = lines[0].trim();
+        if (first.toLowerCase().indexOf("tags:") === 0) {
+          return lines.slice(1).join("\n").replace(/^\s*\n/, "");
+        }
+        return text;
+      }
+
+      async function renderDoc(folderName, fileName) {
+        bumpDocGeneration();
+        const gen = docGeneration;
+        revokeIframeBlob();
+        const found = findFileEntry(folderName, fileName);
+        if (!found) {
+          if (gen !== docGeneration) return;
+          elContentView.innerHTML = "";
+          appendNavBack("#/browse/" + encodeSeg(folderName));
+          elContentView.appendChild(
+            Object.assign(document.createElement("p"), {
+              className: "error",
+              textContent: "找不到文件：" + folderName + " / " + fileName,
+            })
+          );
+          return;
+        }
+
+        const entry = found.entry;
+        const tags = entry.tags || [];
+        currentFolderName = folderName;
+        if (gen !== docGeneration) return;
+
+        elContentView.innerHTML = "";
+        appendNavBack("#/browse/" + encodeSeg(folderName));
+        const pathLine = document.createElement("p");
+        pathLine.className = "hint";
+        pathLine.style.marginBottom = "0.75rem";
+        pathLine.textContent = entry.path || folderName + "/" + fileName;
+        elContentView.appendChild(pathLine);
+        elContentView.appendChild(
+          showTagsBadges(tags, function (tag) {
+            setHashBrowseTag(folderName, tag);
+          })
+        );
+
+        const lower = entry.name.toLowerCase();
+        const url = "./" + entry.path.split("/").map(encodeURIComponent).join("/");
+
+        try {
+          const res = await fetch(url, { cache: "no-store" });
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const text = await res.text();
+          if (gen !== docGeneration) return;
+
+          if (lower.endsWith(".md")) {
+            const div = document.createElement("div");
+            div.className = "md-body";
+            const mdSrc = stripMdTagsLine(text);
+            try {
+              if (typeof marked !== "undefined") {
+                div.innerHTML = marked.parse ? marked.parse(mdSrc) : marked(mdSrc);
+              } else {
+                div.textContent = mdSrc;
+              }
+            } catch (e) {
+              div.textContent = mdSrc;
+            }
+            elContentView.appendChild(div);
+          } else if (lower.endsWith(".html")) {
+            const frame = document.createElement("iframe");
+            frame.id = "doc-html-frame";
+            frame.setAttribute("sandbox", "allow-scripts allow-same-origin");
+            frame.title = entry.name;
+            const blob = new Blob([text], { type: "text/html;charset=utf-8" });
+            const u = URL.createObjectURL(blob);
+            frame.src = u;
+            frame.dataset.blobUrl = u;
+            elContentView.appendChild(frame);
+          } else {
+            elContentView.appendChild(
+              Object.assign(document.createElement("pre"), { textContent: text })
+            );
+          }
+        } catch (e) {
+          if (gen !== docGeneration) return;
+          var msg = "加载失败：" + (e && e.message ? e.message : String(e));
+          if (isFileProtocol()) {
+            msg += " 使用 file:// 时，多数浏览器禁止 fetch 本地 .md/.html 正文；请在本目录执行 python -m http.server 后用 http:// 打开。";
+          }
+          elContentView.appendChild(
+            Object.assign(document.createElement("p"), {
+              className: "error",
+              textContent: msg,
+            })
+          );
+        }
+      }
+
+      function renderTagView(tag) {
+        bumpDocGeneration();
+        revokeIframeBlob();
+        currentFolderName = "";
+
+        const hits = collectTaggedFiles(tag);
+        elContentView.innerHTML = "";
+        appendNavBack("#/browse/" + encodeSeg(resolveBrowseFolder("")));
+        const title = document.createElement("p");
+        title.className = "browse-tags-title";
+        title.textContent = "标签：「" + tag + "」（全部文件夹）";
+        elContentView.appendChild(title);
+        const intro = document.createElement("p");
+        intro.className = "hint";
+        intro.textContent = hits.length ? "共 " + hits.length + " 个文件" : "没有包含该标签的文件";
+        elContentView.appendChild(intro);
+
+        const ul = document.createElement("ul");
+        ul.className = "tag-filter-list";
+        hits.forEach(function (h) {
+          const li = document.createElement("li");
+          const btn = document.createElement("button");
+          btn.type = "button";
+          const pathLabel = h.file.path || h.folder + "/" + h.file.name;
+          btn.innerHTML =
+            "<span>" +
+            escapeHtml(h.file.name) +
+            '</span><span class="path-muted">' +
+            escapeHtml(pathLabel) +
+            "</span>";
+          btn.addEventListener("click", function () {
+            setHashDoc(h.folder, h.file.name);
+          });
+          li.appendChild(btn);
+          ul.appendChild(li);
+        });
+        elContentView.appendChild(ul);
+      }
+
+      function escapeHtml(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function route() {
+        const r = parseHash();
+        if (r.kind === "browse") {
+          const folder = resolveBrowseFolder(r.folder);
+          if (folder && r.folder && folder !== r.folder) {
+            history.replaceState(null, "", "#/browse/" + encodeSeg(folder));
+          }
+          renderBrowse(folder);
+          return;
+        }
+        if (r.kind === "browse_tag") {
+          const folder = resolveBrowseFolder(r.folder);
+          if (folder && r.folder && folder !== r.folder) {
+            history.replaceState(null, "", "#/browse/" + encodeSeg(folder) + "/tag/" + encodeSeg(r.tag));
+          }
+          renderBrowseTagView(folder, r.tag);
+          return;
+        }
+        if (r.kind === "tag") {
+          renderTagView(r.tag);
+          return;
+        }
+        if (r.kind === "doc") {
+          renderDoc(r.folder, r.file);
+          return;
+        }
+        const def = resolveBrowseFolder("");
+        if (def) {
+          history.replaceState(null, "", "#/browse/" + encodeSeg(def));
+        }
+        renderBrowse(def);
+      }
+
+      window.addEventListener("hashchange", route);
+
+      function isFileProtocol() {
+        return (window.location && window.location.protocol) === "file:";
+      }
+
+      async function boot() {
+        try {
+          var embedded =
+            typeof window.__KB_INDEX__ !== "undefined" && window.__KB_INDEX__ !== null;
+          if (embedded) {
+            indexData = window.__KB_INDEX__;
+          } else {
+            const res = await fetch("./index.json", { cache: "no-store" });
+            if (!res.ok) throw new Error("无法读取 index.json（HTTP " + res.status + "）");
+            indexData = await res.json();
+          }
+          if (!indexData || !Array.isArray(indexData.folders)) {
+            indexData = { folders: [] };
+          }
+        } catch (e) {
+          elContentView.innerHTML = "";
+          var hint =
+            "加载索引失败：" +
+            (e && e.message ? e.message : String(e)) +
+            "。请先运行：python build_index.py docs（会生成 index.json 与 index.inline.js）。";
+          if (isFileProtocol()) {
+            hint +=
+              " 使用 file:// 打开时依赖 index.inline.js；若正文无法加载，请改用本地 HTTP 服务（如 python -m http.server）打开本目录。";
+          } else {
+            hint += " 若使用 file:// 打开页面，浏览器通常会禁止 fetch，请改用 http:// 访问同一目录。";
+          }
+          elContentView.appendChild(
+            Object.assign(document.createElement("p"), {
+              className: "error",
+              textContent: hint,
+            })
+          );
+          return;
+        }
+        route();
+      }
+
+      boot();
+    })();
+  </script>
+</body>
+</html>

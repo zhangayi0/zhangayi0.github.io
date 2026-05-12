@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<!-- tags: 数的存储与组织 -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>std::unique 双指针模拟</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --primary: #8b5cf6;
+            --read-color: #3b82f6;
+            --write-color: #10b981;
+            --highlight: #f59e0b;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; touch-action: manipulation; }
+        .pointer-label { font-weight: bold; font-family: monospace; }
+        canvas { width: 100%; height: 100%; touch-action: none; }
+        .control-panel { background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
+        @media (min-width: 768px) {
+            .control-panel { border-bottom: none; border-right: 1px solid #e5e7eb; }
+        }
+        .step-info { transition: all 0.3s ease; }
+        .btn-primary { 
+            background-color: var(--primary);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            min-height: 48px;
+            transition: all 0.2s;
+        }
+        .btn-primary:active { transform: scale(0.95); opacity: 0.9; }
+        .btn-secondary {
+            background-color: #e5e7eb;
+            color: #374151;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            min-height: 48px;
+        }
+        input[type=range] { height: 24px; cursor: pointer; }
+    </style>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const katexOptions = {
+        delimiters: [
+            {left: '\\[', right: '\\]', display: true},
+            {left: '\\(', right: '\\)', display: false},
+            {left: '$$', right: '$$', display: true},
+            {left: '$', right: '$', display: false}
+        ],
+        throwOnError: false,
+        strict: false,
+        trust: true
+    };
+
+    let renderTimeout;
+    function safeRender() {
+        if (renderTimeout) clearTimeout(renderTimeout);
+        renderTimeout = setTimeout(() => {
+            renderMathInElement(document.body, katexOptions);
+        }, 100);
+    }
+
+    renderMathInElement(document.body, katexOptions);
+
+    const observer = new MutationObserver((mutations) => {
+        let shouldRender = false;
+        mutations.forEach((mutation) => {
+            if (mutation.target &&
+                mutation.target.className &&
+                typeof mutation.target.className === 'string' &&
+                mutation.target.className.includes('katex')) {
+                return;
+            }
+            shouldRender = true;
+        });
+
+        if (shouldRender) {
+            safeRender();
+        }
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true
+    });
+
+    setInterval(() => {
+        const text = document.body.innerText;
+        if (text.includes('\\(') || text.includes('$$')) {
+            safeRender();
+        }
+    }, 2000);
+});
+</script>
+</head>
+<body class="flex flex-col md:flex-row min-h-screen bg-gray-50 overflow-hidden">
+
+<script type="application/json" id="widget-config">
+{
+  "type": "simulation",
+  "concept": "std_unique_double_pointers",
+  "description": "模拟 C++ std::unique 算法如何使用 read 和 write 双指针去除连续重复元素。",
+  "variables": [
+    { "name": "speed", "label": "演示速度", "min": 0.5, "max": 3, "default": 1, "unit": "x" }
+  ],
+  "presets": [
+    { "name": "简单重复", "variables": { "array": [1, 1, 2, 2, 3, 3] } },
+    { "name": "混合数据", "variables": { "array": [1, 2, 2, 3, 2, 2, 4] } },
+    { "name": "无重复", "variables": { "array": [1, 2, 3, 4, 5] } }
+  ]
+}
+</script>
+
+<!-- UI Layout -->
+<div id="controls" class="w-full md:w-80 shrink-0 control-panel flex flex-col p-4 z-10 overflow-y-auto max-h-[45vh] md:max-h-screen shadow-lg">
+    <h1 class="text-xl font-bold mb-4 text-gray-800">std::unique 模拟</h1>
+    
+    <div class="space-y-6">
+        <!-- Input State -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">初始数组</label>
+            <div id="array-input-display" class="flex flex-wrap gap-1 mb-2"></div>
+            <div class="flex gap-2">
+                <button onclick="changeArray([1,1,2,3,3,3,4,4,5])" class="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-50">预设1</button>
+                <button onclick="changeArray([1,2,2,2,1,1,3])" class="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-50">预设2</button>
+                <button onclick="randomArray()" class="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-50">随机</button>
+            </div>
+        </div>
+
+        <!-- Speed Slider -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+                演进速度: <span id="speed-display" class="font-mono">1.0</span>x
+            </label>
+            <input type="range" id="speed-slider" data-var="speed" min="0.5" max="3" step="0.1" value="1" class="w-full accent-purple-600">
+        </div>
+
+        <!-- Info Card -->
+        <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
+            <h3 class="text-sm font-bold text-blue-800 mb-1">当前逻辑:</h3>
+            <p id="logic-step" class="text-xs text-blue-700 leading-relaxed italic">等待启动...</p>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="grid grid-cols-1 gap-2">
+            <button id="main-btn" onclick="handleMainAction()" class="btn-primary w-full shadow-md">启动模拟</button>
+            <button id="step-btn" onclick="stepSimulation()" class="btn-secondary w-full">单步步进</button>
+            <button id="reset-btn" onclick="resetSimulation()" class="btn-secondary w-full">重置</button>
+        </div>
+
+        <!-- Legend -->
+        <div class="text-xs space-y-2 pt-4 border-t border-gray-200">
+            <div class="flex items-center"><div class="w-3 h-3 rounded-full bg-blue-500 mr-2"></div><span class="font-mono text-blue-600">read</span>: 扫描当前元素</div>
+            <div class="flex items-center"><div class="w-3 h-3 rounded-full bg-emerald-500 mr-2"></div><span class="font-mono text-emerald-600">write</span>: 存放下一个唯一元素的位置</div>
+            <div class="text-gray-400 mt-2 italic">* std::unique 只保证前 write 个元素唯一。</div>
+        </div>
+    </div>
+</div>
+
+<div class="flex-1 relative flex flex-col bg-white">
+    <div id="stats" class="absolute top-4 left-4 right-4 flex justify-between pointer-events-none z-10">
+        <div class="bg-white/80 backdrop-blur px-3 py-1 rounded shadow-sm border border-gray-100">
+            <span class="text-xs text-gray-500">数组长度:</span>
+            <span id="arr-len" class="font-mono font-bold">0</span>
+        </div>
+        <div class="bg-white/80 backdrop-blur px-3 py-1 rounded shadow-sm border border-gray-100">
+            <span class="text-xs text-gray-500">已处理:</span>
+            <span id="processed-count" class="font-mono font-bold">0</span>
+        </div>
+    </div>
+    
+    <div class="flex-1 min-h-[300px] w-full">
+        <canvas id="sim-canvas"></canvas>
+    </div>
+    
+    <!-- Success Overlay -->
+    <div id="success-overlay" class="absolute inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center hidden z-20">
+        <div class="bg-white p-6 rounded-2xl shadow-2xl text-center border-2 border-emerald-500 animate-bounce">
+            <h2 class="text-2xl font-bold text-emerald-600 mb-2">处理完成!</h2>
+            <p class="text-gray-600 mb-4 font-mono">逻辑去重后长度: <span id="final-count">0</span></p>
+            <button onclick="resetSimulation()" class="btn-primary">再次尝试</button>
+        </div>
+    </div>
+</div>
+
+<script>
+/** @type {HTMLCanvasElement} */
+const canvas = document.getElementById('sim-canvas');
+const ctx = canvas.getContext('2d');
+const mainBtn = document.getElementById('main-btn');
+const logicText = document.getElementById('logic-step');
+
+let state = {
+    running: false,
+    paused: false,
+    ended: false,
+    array: [1, 1, 2, 2, 2, 3, 4, 4, 5],
+    displayArray: [1, 1, 2, 2, 2, 3, 4, 4, 5], // 用于动画展示的数组
+    read: 1,
+    write: 1,
+    speed: 1,
+    lastTick: 0,
+    tickAccumulator: 0,
+    subStep: 'COMPARE', // COMPARE, MOVE_WRITE, MOVE_READ
+    comparisonResult: null // true if different
+};
+
+function init() {
+    window.addEventListener('resize', resize);
+    resize();
+    
+    // Sliders
+    document.getElementById('speed-slider').addEventListener('input', (e) => {
+        state.speed = parseFloat(e.target.value);
+        document.getElementById('speed-display').innerText = state.speed.toFixed(1);
+    });
+
+    resetSimulation();
+    requestAnimationFrame(render);
+}
+
+function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+}
+
+function resetSimulation() {
+    state.running = false;
+    state.paused = false;
+    state.ended = false;
+    state.read = 1;
+    state.write = 1;
+    state.subStep = 'COMPARE';
+    state.displayArray = [...state.array];
+    state.comparisonResult = null;
+    
+    mainBtn.innerText = '启动模拟';
+    mainBtn.className = 'btn-primary w-full shadow-md';
+    logicText.innerText = "准备就绪。数组第一个元素默认保持不变，从 index 1 开始扫描。";
+    document.getElementById('success-overlay').classList.add('hidden');
+    updateStats();
+}
+
+function changeArray(newArr) {
+    state.array = [...newArr];
+    resetSimulation();
+}
+
+function randomArray() {
+    const arr = [];
+    let cur = 1;
+    for(let i=0; i<8; i++) {
+        if(Math.random() > 0.5) cur++;
+        arr.push(cur);
+    }
+    changeArray(arr);
+}
+
+function handleMainAction() {
+    if (state.ended) {
+        resetSimulation();
+        state.running = true;
+        mainBtn.innerText = '暂停';
+    } else if (state.running) {
+        state.running = false;
+        state.paused = true;
+        mainBtn.innerText = '继续';
+    } else {
+        state.running = true;
+        state.paused = false;
+        mainBtn.innerText = '暂停';
+    }
+}
+
+function stepSimulation() {
+    if (state.ended) return;
+    
+    if (state.subStep === 'COMPARE') {
+        const valRead = state.displayArray[state.read];
+        const valPrevWrite = state.displayArray[state.write - 1];
+        
+        state.comparisonResult = (valRead !== valPrevWrite);
+        
+        if (state.comparisonResult) {
+            logicText.innerText = `比较: arr[read](${valRead}) != arr[write-1](${valPrevWrite})，需要移动元素。`;
+            state.subStep = 'MOVE_WRITE';
+        } else {
+            logicText.innerText = `比较: arr[read](${valRead}) == arr[write-1](${valPrevWrite})，重复，跳过。`;
+            state.subStep = 'MOVE_READ';
+        }
+    } else if (state.subStep === 'MOVE_WRITE') {
+        // Copy element
+        state.displayArray[state.write] = state.displayArray[state.read];
+        state.write++;
+        logicText.innerText = `操作: 将 read 处的值复制到 write 位置，write 向右移动一位。`;
+        state.subStep = 'MOVE_READ';
+    } else if (state.subStep === 'MOVE_READ') {
+        state.read++;
+        state.comparisonResult = null;
+        logicText.innerText = `移动: read 向右扫描。`;
+        
+        if (state.read >= state.displayArray.length) {
+            finishSimulation();
+        } else {
+            state.subStep = 'COMPARE';
+        }
+    }
+    
+    updateStats();
+}
+
+function finishSimulation() {
+    state.running = false;
+    state.ended = true;
+    mainBtn.innerText = '重新开始';
+    mainBtn.className = 'btn-primary w-full shadow-md bg-emerald-500';
+    document.getElementById('success-overlay').classList.remove('hidden');
+    document.getElementById('final-count').innerText = state.write;
+    logicText.innerText = "完成！std::unique 返回了新的逻辑终点指针。";
+}
+
+function updateStats() {
+    document.getElementById('arr-len').innerText = state.displayArray.length;
+    document.getElementById('processed-count').innerText = state.write;
+}
+
+function render(timestamp) {
+    if (state.running && !state.paused) {
+        const delta = timestamp - state.lastTick;
+        state.tickAccumulator += delta * state.speed;
+        
+        if (state.tickAccumulator > 800) { // 控制自动运行步频
+            stepSimulation();
+            state.tickAccumulator = 0;
+        }
+    }
+    state.lastTick = timestamp;
+
+    const w = canvas.width / (window.devicePixelRatio || 1);
+    const h = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, w, h);
+
+    // Draw Array
+    const cellCount = state.displayArray.length;
+    const padding = 20;
+    const availableWidth = w - padding * 2;
+    const cellSize = Math.min(availableWidth / cellCount, 80);
+    const totalArrWidth = cellSize * cellCount;
+    const startX = (w - totalArrWidth) / 2;
+    const centerY = h / 2 - 20;
+
+    state.displayArray.forEach((val, i) => {
+        const x = startX + i * cellSize;
+        const y = centerY;
+
+        // Cell Style
+        ctx.lineWidth = 2;
+        
+        // Background color logic
+        if (i < state.write) {
+            ctx.fillStyle = '#ecfdf5'; // Valid range
+            ctx.strokeStyle = '#10b981';
+        } else if (i < state.read) {
+            ctx.fillStyle = '#f3f4f6'; // "Dirty" range
+            ctx.strokeStyle = '#d1d5db';
+        } else {
+            ctx.fillStyle = '#ffffff'; // Unseen range
+            ctx.strokeStyle = '#3b82f6';
+        }
+
+        // Highlights for comparison
+        if (state.subStep === 'COMPARE' || state.subStep === 'MOVE_WRITE') {
+            if (i === state.read) {
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 4;
+            }
+            if (i === state.write - 1) {
+                ctx.strokeStyle = '#10b981';
+                ctx.lineWidth = 4;
+            }
+        }
+
+        // Draw box
+        roundRect(ctx, x + 5, y, cellSize - 10, cellSize - 10, 8, true, true);
+
+        // Draw text
+        ctx.fillStyle = i < state.write ? '#065f46' : (i < state.read ? '#9ca3af' : '#1e3a8a');
+        ctx.font = `bold ${Math.max(14, cellSize/3)}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(val, x + cellSize/2, y + (cellSize-10)/2);
+        
+        // Draw index
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = '10px monospace';
+        ctx.fillText(i, x + cellSize/2, y + cellSize + 10);
+    });
+
+    // Draw Pointers
+    drawPointer(ctx, startX + state.read * cellSize + cellSize/2, centerY - 15, 'read', '#3b82f6', -1);
+    drawPointer(ctx, startX + state.write * cellSize + cellSize/2, centerY + cellSize + 10, 'write', '#10b981', 1);
+
+    // Draw Connection lines during comparison
+    if (state.subStep === 'COMPARE') {
+        ctx.beginPath();
+        ctx.setLineDash([5, 5]);
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2;
+        const x1 = startX + (state.write - 1) * cellSize + cellSize/2;
+        const x2 = startX + state.read * cellSize + cellSize/2;
+        ctx.moveTo(x1, centerY - 10);
+        ctx.quadraticCurveTo((x1+x2)/2, centerY - 60, x2, centerY - 10);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        // Comparison symbol
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = 'bold 20px serif';
+        ctx.fillText(state.comparisonResult === null ? '?' : (state.comparisonResult ? '≠' : '='), (x1+x2)/2, centerY - 65);
+    }
+
+    requestAnimationFrame(render);
+}
+
+function drawPointer(ctx, x, y, label, color, direction) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    if (direction === -1) { // Points down
+        ctx.moveTo(x, y);
+        ctx.lineTo(x - 8, y - 12);
+        ctx.lineTo(x + 8, y - 12);
+    } else { // Points up
+        ctx.moveTo(x, y + 25);
+        ctx.lineTo(x - 8, y + 37);
+        ctx.lineTo(x + 8, y + 37);
+    }
+    ctx.fill();
+    
+    ctx.font = 'bold 14px monospace';
+    ctx.fillText(label, x, y + (direction === -1 ? -25 : 52));
+}
+
+function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+    if (fill) ctx.fill();
+    if (stroke) ctx.stroke();
+}
+
+// Teacher postMessage logic
+window.addEventListener('message', function(event) {
+    const { type, target, state: newState, content } = event.data;
+    switch (type) {
+        case 'SET_WIDGET_STATE':
+            if (newState) {
+                if (newState.array) changeArray(newState.array);
+                if (newState.speed) {
+                    state.speed = newState.speed;
+                    const slider = document.getElementById('speed-slider');
+                    if(slider) slider.value = newState.speed;
+                }
+            }
+            break;
+        case 'HIGHLIGHT_ELEMENT':
+            const el = document.querySelector(target);
+            if (el) {
+                el.style.outline = '3px solid #8b5cf6';
+                el.style.outlineOffset = '4px';
+                setTimeout(() => el.style.outline = '', 3000);
+            }
+            break;
+    }
+});
+
+// Key shortcuts
+window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+        e.preventDefault();
+        handleMainAction();
+    }
+    if (e.code === 'KeyR') {
+        resetSimulation();
+    }
+    if (e.code === 'ArrowRight' || e.code === 'Enter') {
+        stepSimulation();
+    }
+});
+
+init();
+</script>
+</body>
+</html>
