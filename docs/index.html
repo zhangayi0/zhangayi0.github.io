@@ -214,6 +214,152 @@
       font-weight: 600;
       letter-spacing: -0.02em;
     }
+
+    /* --- Exam styles --- */
+    .exam-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin: 0 0 0.5rem;
+      line-height: 1.4;
+    }
+    .exam-meta {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .exam-meta span {
+      margin-right: 0.75rem;
+    }
+    .exam-section-title {
+      font-weight: 600;
+      font-size: 1rem;
+      margin: 1.25rem 0 0.75rem;
+    }
+    .question-card {
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      margin-bottom: 0.75rem;
+      background: #fff;
+      transition: border-color 0.25s, background 0.25s;
+    }
+    .question-card.correct {
+      border-color: #22c55e;
+      background: #f0fdf4;
+    }
+    .question-card.wrong {
+      border-color: #ef4444;
+      background: #fef2f2;
+    }
+    .q-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.6rem;
+    }
+    .q-number {
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+    .q-type {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.1rem 0.45rem;
+      border-radius: 4px;
+      background: #e0e7ff;
+      color: #4338ca;
+    }
+    .q-type.multi {
+      background: #fce7f3;
+      color: #be185d;
+    }
+    .q-text {
+      font-size: 0.95rem;
+      margin-bottom: 0.6rem;
+      line-height: 1.5;
+    }
+    .options-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .option-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      padding: 0.4rem 0.5rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: background 0.15s;
+      border: 1px solid transparent;
+      margin-bottom: 0.25rem;
+    }
+    .option-item:hover {
+      background: #f4f4f5;
+    }
+    .option-item.selected {
+      background: #eff6ff;
+      border-color: #93c5fd;
+    }
+    .option-item input {
+      margin-top: 0.2rem;
+      flex-shrink: 0;
+    }
+    .option-label {
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .option-text {
+      flex: 1;
+    }
+    .exam-actions {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.25rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+    .btn-primary {
+      padding: 0.6rem 1.5rem;
+      border-radius: 8px;
+      border: none;
+      background: #2563eb;
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-primary:hover {
+      background: #1d4ed8;
+    }
+    .btn-reset {
+      padding: 0.6rem 1.5rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--fg);
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-reset:hover {
+      background: #f4f4f5;
+    }
+    .exam-score {
+      margin-top: 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      text-align: center;
+      padding: 0.75rem;
+      border-radius: 8px;
+      background: #f4f4f5;
+    }
   </style>
 </head>
 <body>
@@ -629,6 +775,21 @@
             frame.src = u;
             frame.dataset.blobUrl = u;
             elContentView.appendChild(frame);
+          } else if (lower.endsWith(".json")) {
+            try {
+              const examData = JSON.parse(text);
+              if (examData && examData.questions && Array.isArray(examData.questions)) {
+                renderExam(examData, folderName);
+              } else {
+                elContentView.appendChild(
+                  Object.assign(document.createElement("pre"), { textContent: text })
+                );
+              }
+            } catch (e) {
+              elContentView.appendChild(
+                Object.assign(document.createElement("pre"), { textContent: text })
+              );
+            }
           } else {
             elContentView.appendChild(
               Object.assign(document.createElement("pre"), { textContent: text })
@@ -694,6 +855,251 @@
           .replace(/</g, "&lt;")
           .replace(/>/g, "&gt;")
           .replace(/"/g, "&quot;");
+      }
+
+      function renderExam(examData, folderName) {
+        bumpDocGeneration();
+        revokeIframeBlob();
+        currentFolderName = folderName;
+        elContentView.innerHTML = "";
+        appendNavBack("#/browse/" + encodeSeg(folderName));
+
+        var title = document.createElement("h1");
+        title.className = "exam-title";
+        title.textContent = examData.title || "试卷";
+        elContentView.appendChild(title);
+
+        if (examData.meta) {
+          var m = examData.meta;
+          var metaP = document.createElement("p");
+          metaP.className = "exam-meta";
+          var parts = [];
+          if (m.total) parts.push("共 " + m.total + " 题");
+          if (m.totalScore) parts.push("总分 " + m.totalScore + " 分");
+          if (m.singleCount) parts.push("单选 " + m.singleCount + " 道");
+          if (m.multiCount) parts.push("多选 " + m.multiCount + " 道");
+          if (m.time) parts.push("时间 " + m.time);
+          metaP.textContent = parts.join(" · ");
+          elContentView.appendChild(metaP);
+          if (m.note) {
+            var noteP = document.createElement("p");
+            noteP.className = "hint";
+            noteP.style.marginTop = "-0.75rem";
+            noteP.style.marginBottom = "0.75rem";
+            noteP.textContent = "注意：" + m.note;
+            elContentView.appendChild(noteP);
+          }
+        }
+
+        var questions = examData.questions || [];
+        var singleQ = questions.filter(function (q) { return q.type === "single"; });
+        var multiQ = questions.filter(function (q) { return q.type === "multiple"; });
+
+        var state = {};
+        questions.forEach(function (q) {
+          state[q.id] = { selected: q.type === "single" ? "" : [] };
+        });
+
+        function renderQuestions() {
+          var container = document.getElementById("exam-questions-container");
+          if (!container) return;
+          container.innerHTML = "";
+
+          if (singleQ.length) {
+            var sTitle = document.createElement("h2");
+            sTitle.className = "exam-section-title";
+            sTitle.textContent = "一、单选题（每题 " + (examData.meta ? examData.meta.singleScore || 3 : 3) + " 分）";
+            container.appendChild(sTitle);
+            singleQ.forEach(function (q) {
+              container.appendChild(buildQuestionCard(q));
+            });
+          }
+
+          if (multiQ.length) {
+            var mTitle = document.createElement("h2");
+            mTitle.className = "exam-section-title";
+            mTitle.textContent = "二、多选题（每题 " + (examData.meta ? examData.meta.multiScore || 4 : 4) + " 分，至少有两个正确选项）";
+            container.appendChild(mTitle);
+            multiQ.forEach(function (q) {
+              container.appendChild(buildQuestionCard(q));
+            });
+          }
+
+          var actions = document.createElement("div");
+          actions.className = "exam-actions";
+
+          var submitBtn = document.createElement("button");
+          submitBtn.type = "button";
+          submitBtn.className = "btn-primary";
+          submitBtn.textContent = "提交";
+          submitBtn.addEventListener("click", function () {
+            var allCorrect = true;
+            var correctCount = 0;
+            questions.forEach(function (q) {
+              var card = document.getElementById("q-card-" + q.id);
+              if (!card) return;
+              card.classList.remove("correct", "wrong");
+              var userAns = state[q.id].selected;
+              var isCorrect = false;
+              if (q.type === "single") {
+                isCorrect = (String(userAns) === String(q.answer));
+              } else {
+                if (Array.isArray(userAns) && Array.isArray(q.answer)) {
+                  var sorted1 = userAns.slice().sort().join(",");
+                  var sorted2 = q.answer.slice().sort().join(",");
+                  isCorrect = (sorted1 === sorted2);
+                }
+              }
+              if (isCorrect) {
+                card.classList.add("correct");
+                correctCount++;
+              } else {
+                card.classList.add("wrong");
+                allCorrect = false;
+              }
+            });
+            var existingScore = document.getElementById("exam-score");
+            if (existingScore) existingScore.remove();
+            var total = questions.length;
+            var scoreEl = document.createElement("div");
+            scoreEl.id = "exam-score";
+            scoreEl.className = "exam-score";
+            scoreEl.textContent = "得分：" + correctCount + " / " + total + "（正确 " + correctCount + " 题，错误 " + (total - correctCount) + " 题）";
+            document.getElementById("exam-actions-wrapper").appendChild(scoreEl);
+          });
+
+          var resetBtn = document.createElement("button");
+          resetBtn.type = "button";
+          resetBtn.className = "btn-reset";
+          resetBtn.textContent = "重置";
+          resetBtn.addEventListener("click", function () {
+            var existingScore = document.getElementById("exam-score");
+            if (existingScore) existingScore.remove();
+            questions.forEach(function (q) {
+              state[q.id].selected = q.type === "single" ? "" : [];
+              var card = document.getElementById("q-card-" + q.id);
+              if (card) {
+                card.classList.remove("correct", "wrong");
+              }
+              var opts = document.querySelectorAll("#q-card-" + q.id + " .option-item");
+              opts.forEach(function (o) {
+                o.classList.remove("selected");
+                var inp = o.querySelector("input");
+                if (inp) {
+                  if (inp.type === "radio") inp.checked = false;
+                  else if (inp.type === "checkbox") inp.checked = false;
+                }
+              });
+            });
+          });
+
+          actions.appendChild(submitBtn);
+          actions.appendChild(resetBtn);
+          actions.id = "exam-actions-wrapper";
+          container.appendChild(actions);
+        }
+
+        function buildQuestionCard(q) {
+          var card = document.createElement("div");
+          card.className = "question-card";
+          card.id = "q-card-" + q.id;
+
+          var header = document.createElement("div");
+          header.className = "q-header";
+
+          var num = document.createElement("span");
+          num.className = "q-number";
+          num.textContent = q.id + ".";
+          header.appendChild(num);
+
+          var typeBadge = document.createElement("span");
+          typeBadge.className = "q-type" + (q.type === "multiple" ? " multi" : "");
+          typeBadge.textContent = q.type === "single" ? "单选" : "多选";
+          header.appendChild(typeBadge);
+
+          card.appendChild(header);
+
+          var qText = document.createElement("div");
+          qText.className = "q-text";
+          qText.textContent = q.question;
+          card.appendChild(qText);
+
+          var list = document.createElement("ul");
+          list.className = "options-list";
+
+          q.options.forEach(function (opt) {
+            var li = document.createElement("li");
+            li.className = "option-item";
+
+            var input = document.createElement("input");
+            if (q.type === "single") {
+              input.type = "radio";
+              input.name = "q-" + q.id;
+            } else {
+              input.type = "checkbox";
+              input.name = "q-" + q.id;
+            }
+            input.value = opt.label;
+
+            input.addEventListener("change", function () {
+              var existingScore = document.getElementById("exam-score");
+              if (existingScore) existingScore.remove();
+              var cardEl = document.getElementById("q-card-" + q.id);
+              if (cardEl) cardEl.classList.remove("correct", "wrong");
+              if (q.type === "single") {
+                if (input.checked) {
+                  state[q.id].selected = opt.label;
+                  var siblings = list.querySelectorAll(".option-item");
+                  siblings.forEach(function (s) {
+                    s.classList.remove("selected");
+                  });
+                  li.classList.add("selected");
+                }
+              } else {
+                if (input.checked) {
+                  state[q.id].selected.push(opt.label);
+                  li.classList.add("selected");
+                } else {
+                  var idx = state[q.id].selected.indexOf(opt.label);
+                  if (idx !== -1) state[q.id].selected.splice(idx, 1);
+                  li.classList.remove("selected");
+                }
+              }
+            });
+
+            li.appendChild(input);
+
+            var labelSpan = document.createElement("span");
+            labelSpan.className = "option-label";
+            labelSpan.textContent = opt.label + ".";
+            li.appendChild(labelSpan);
+
+            var textSpan = document.createElement("span");
+            textSpan.className = "option-text";
+            textSpan.textContent = opt.text;
+            li.appendChild(textSpan);
+
+            li.addEventListener("click", function (e) {
+              if (e.target.tagName !== "INPUT") {
+                var inp = li.querySelector("input");
+                if (inp && !inp.disabled) {
+                  inp.click();
+                }
+              }
+            });
+
+            list.appendChild(li);
+          });
+
+          card.appendChild(list);
+          return card;
+        }
+
+        var questionsContainer = document.createElement("div");
+        questionsContainer.id = "exam-questions-container";
+        elContentView.appendChild(questionsContainer);
+
+        renderQuestions();
       }
 
       function route() {

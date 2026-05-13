@@ -54,6 +54,18 @@ def parse_html_tags(text: str) -> list[str]:
     return [p for p in parts if p]
 
 
+def parse_json_tags(text: str) -> list[str]:
+    """从 JSON 文件中提取 tags 字段"""
+    try:
+        data = json.loads(text)
+        tags = data.get("tags", [])
+        if isinstance(tags, list):
+            return [str(t) for t in tags if t]
+    except (json.JSONDecodeError, ValueError):
+        pass
+    return []
+
+
 def read_text_safe(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8")
@@ -95,7 +107,7 @@ def build_index(root: Path) -> dict:
         files_out: list[dict] = []
         try:
             candidates = sorted(
-                [p for p in folder.rglob("*") if p.is_file() and p.suffix.lower() in (".md", ".html")],
+                [p for p in folder.rglob("*") if p.is_file() and p.suffix.lower() in (".md", ".html", ".json")],
                 key=lambda p: str(p).lower(),
             )
         except OSError:
@@ -110,6 +122,8 @@ def build_index(root: Path) -> dict:
                 tags = parse_md_tags(body)
             elif suf == ".html":
                 tags = parse_html_tags(body)
+            elif suf == ".json":
+                tags = parse_json_tags(body)
 
             files_out.append(
                 {
