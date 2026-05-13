@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>知识库</title>
+  <title>张毅老师的课堂知识库</title>
   <style>
     :root {
       --bg: #ffffff;
@@ -359,6 +359,43 @@
       padding: 0.75rem;
       border-radius: 8px;
       background: #f4f4f5;
+    }
+    .exam-timer {
+      display: inline-block;
+      font-size: 1.1rem;
+      font-weight: 700;
+      padding: 0.35rem 0.85rem;
+      border-radius: 8px;
+      background: #f0fdf4;
+      color: #16a34a;
+      border: 1px solid #bbf7d0;
+      margin-bottom: 1rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .exam-timer.warning {
+      background: #fef2f2;
+      color: #dc2626;
+      border-color: #fecaca;
+      animation: timer-pulse 1s ease-in-out infinite;
+    }
+    @keyframes timer-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    .option-item.correct-answer {
+      background: #f0fdf4;
+      border-color: #86efac;
+    }
+    .option-item.wrong-selected {
+      background: #fef2f2;
+      border-color: #fca5a5;
+    }
+    .option-item.disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+    .option-item.disabled:hover {
+      background: inherit;
     }
   </style>
 </head>
@@ -864,10 +901,44 @@
         elContentView.innerHTML = "";
         appendNavBack("#/browse/" + encodeSeg(folderName));
 
+        var submitted = false;
+        var timerInterval = null;
+        var timeLeft = 1800;
+
         var title = document.createElement("h1");
         title.className = "exam-title";
         title.textContent = examData.title || "试卷";
         elContentView.appendChild(title);
+
+        var timerEl = document.createElement("div");
+        timerEl.className = "exam-timer";
+        elContentView.appendChild(timerEl);
+
+        function updateTimerDisplay() {
+          var min = Math.floor(timeLeft / 60);
+          var sec = timeLeft % 60;
+          timerEl.textContent = "⏱ " + String(min).padStart(2, "0") + ":" + String(sec).padStart(2, "0");
+          if (timeLeft <= 60) {
+            timerEl.classList.add("warning");
+          } else {
+            timerEl.classList.remove("warning");
+          }
+        }
+
+        function startTimer() {
+          updateTimerDisplay();
+          timerInterval = setInterval(function () {
+            timeLeft--;
+            updateTimerDisplay();
+            if (timeLeft <= 0) {
+              clearInterval(timerInterval);
+              timerInterval = null;
+              if (!submitted) {
+                doSubmit(true);
+              }
+            }
+          }, 1000);
+        }
 
         if (examData.meta) {
           var m = examData.meta;
@@ -878,7 +949,7 @@
           if (m.totalScore) parts.push("总分 " + m.totalScore + " 分");
           if (m.singleCount) parts.push("单选 " + m.singleCount + " 道");
           if (m.multiCount) parts.push("多选 " + m.multiCount + " 道");
-          if (m.time) parts.push("时间 " + m.time);
+          parts.push("时间 30 分钟");
           metaP.textContent = parts.join(" · ");
           elContentView.appendChild(metaP);
           if (m.note) {
@@ -899,6 +970,86 @@
         questions.forEach(function (q) {
           state[q.id] = { selected: q.type === "single" ? "" : [] };
         });
+
+        function disableAllInputs() {
+          var allInputs = elContentView.querySelectorAll(".option-item input");
+          allInputs.forEach(function (inp) {
+            inp.disabled = true;
+          });
+          var allOptions = elContentView.querySelectorAll(".option-item");
+          allOptions.forEach(function (o) {
+            o.classList.add("disabled");
+          });
+        }
+
+        function doSubmit(isAuto) {
+          if (submitted) return;
+          submitted = true;
+          if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+          }
+
+          var correctCount = 0;
+          questions.forEach(function (q) {
+            var card = document.getElementById("q-card-" + q.id);
+            if (!card) return;
+            card.classList.remove("correct", "wrong");
+            var userAns = state[q.id].selected;
+            var isCorrect = false;
+            if (q.type === "single") {
+              isCorrect = (String(userAns) === String(q.answer));
+            } else {
+              if (Array.isArray(userAns) && Array.isArray(q.answer)) {
+                var sorted1 = userAns.slice().sort().join(",");
+                var sorted2 = q.answer.slice().sort().join(",");
+                isCorrect = (sorted1 === sorted2);
+              }
+            }
+            if (isCorrect) {
+              card.classList.add("correct");
+              correctCount++;
+            } else {
+              card.classList.add("wrong");
+              var opts = card.querySelectorAll(".option-item");
+              opts.forEach(function (o) {
+                var inp = o.querySelector("input");
+                if (!inp) return;
+                var isCorrectOpt = false;
+                if (q.type === "single") {
+                  isCorrectOpt = (inp.value === String(q.answer));
+                } else {
+                  isCorrectOpt = (q.answer.indexOf(inp.value) !== -1);
+                }
+                if (isCorrectOpt) {
+                  o.classList.add("correct-answer");
+                } else if (inp.checked) {
+                  o.classList.add("wrong-selected");
+                }
+              });
+            }
+          });
+
+          disableAllInputs();
+
+          var submitBtn = document.getElementById("exam-submit-btn");
+          var resetBtn = document.getElementById("exam-reset-btn");
+          if (submitBtn) submitBtn.disabled = true;
+          if (resetBtn) resetBtn.disabled = true;
+
+          if (isAuto) {
+            timerEl.textContent = "⏱ 时间到！";
+          }
+
+          var existingScore = document.getElementById("exam-score");
+          if (existingScore) existingScore.remove();
+          var total = questions.length;
+          var scoreEl = document.createElement("div");
+          scoreEl.id = "exam-score";
+          scoreEl.className = "exam-score";
+          scoreEl.textContent = "得分：" + correctCount + " / " + total + "（正确 " + correctCount + " 题，错误 " + (total - correctCount) + " 题）";
+          document.getElementById("exam-actions-wrapper").appendChild(scoreEl);
+        }
 
         function renderQuestions() {
           var container = document.getElementById("exam-questions-container");
@@ -930,49 +1081,20 @@
 
           var submitBtn = document.createElement("button");
           submitBtn.type = "button";
+          submitBtn.id = "exam-submit-btn";
           submitBtn.className = "btn-primary";
           submitBtn.textContent = "提交";
           submitBtn.addEventListener("click", function () {
-            var allCorrect = true;
-            var correctCount = 0;
-            questions.forEach(function (q) {
-              var card = document.getElementById("q-card-" + q.id);
-              if (!card) return;
-              card.classList.remove("correct", "wrong");
-              var userAns = state[q.id].selected;
-              var isCorrect = false;
-              if (q.type === "single") {
-                isCorrect = (String(userAns) === String(q.answer));
-              } else {
-                if (Array.isArray(userAns) && Array.isArray(q.answer)) {
-                  var sorted1 = userAns.slice().sort().join(",");
-                  var sorted2 = q.answer.slice().sort().join(",");
-                  isCorrect = (sorted1 === sorted2);
-                }
-              }
-              if (isCorrect) {
-                card.classList.add("correct");
-                correctCount++;
-              } else {
-                card.classList.add("wrong");
-                allCorrect = false;
-              }
-            });
-            var existingScore = document.getElementById("exam-score");
-            if (existingScore) existingScore.remove();
-            var total = questions.length;
-            var scoreEl = document.createElement("div");
-            scoreEl.id = "exam-score";
-            scoreEl.className = "exam-score";
-            scoreEl.textContent = "得分：" + correctCount + " / " + total + "（正确 " + correctCount + " 题，错误 " + (total - correctCount) + " 题）";
-            document.getElementById("exam-actions-wrapper").appendChild(scoreEl);
+            doSubmit(false);
           });
 
           var resetBtn = document.createElement("button");
           resetBtn.type = "button";
+          resetBtn.id = "exam-reset-btn";
           resetBtn.className = "btn-reset";
           resetBtn.textContent = "重置";
           resetBtn.addEventListener("click", function () {
+            if (submitted) return;
             var existingScore = document.getElementById("exam-score");
             if (existingScore) existingScore.remove();
             questions.forEach(function (q) {
@@ -1042,6 +1164,10 @@
             input.value = opt.label;
 
             input.addEventListener("change", function () {
+              if (submitted) {
+                input.checked = !input.checked;
+                return;
+              }
               var existingScore = document.getElementById("exam-score");
               if (existingScore) existingScore.remove();
               var cardEl = document.getElementById("q-card-" + q.id);
@@ -1100,6 +1226,7 @@
         elContentView.appendChild(questionsContainer);
 
         renderQuestions();
+        startTimer();
       }
 
       function route() {
